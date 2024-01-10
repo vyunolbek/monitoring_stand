@@ -41,6 +41,35 @@ class ImageEditor:
         self.check_button = tk.Button(root, text="Проверить", command=self.check_text)
         self.check_button.pack(side=tk.TOP)
 
+        # Создаем кнопку для загрузки координат
+        self.load_coords_button = tk.Button(root, text="Загрузить координаты", command=self.load_coordinates_for_check)
+        self.load_coords_button.pack(side=tk.TOP)
+
+        # Создаем кнопку для загрузки изображения для проверки
+        self.load_image_button = tk.Button(root, text="Загрузить изображение", command=self.load_image_for_check)
+        self.load_image_button.pack(side=tk.TOP)
+
+    def load_coordinates_for_check(self):
+        # Загрузить JSON с координатами для проверки
+        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if file_path:
+            with open(file_path, 'r') as f:
+                self.rectangles_data = json.load(f)
+                print(self.rectangles_data)
+            # Очистить холст и отрисовать изображение с координатами
+            self.display_image()
+            self.draw_saved_rectangles()
+
+    def load_image_for_check(self):
+        # Загрузить изображение для проверки
+        file_path = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
+        if file_path:
+            self.image_path = file_path
+            self.original_image = Image.open(file_path)
+            self.resize_image()
+            self.display_image()
+            self.draw_saved_rectangles()
+
     def check_text(self):
         # Проверяем текст на квадратах с использованием Tesseract OCR
         if self.image_path:
@@ -50,7 +79,14 @@ class ImageEditor:
                 text = pytesseract.image_to_string(region, lang='eng')
                 class_name = data["class"]
 
-                print(f"Class: {class_name}, Text: {text}")
+                # Рисуем прямоугольник с соответствующим цветом
+                color = "green" if text.strip() == class_name else "red"
+                self.canvas.create_rectangle(coordinates, outline=color, width=2, tags="checked_rectangles")
+
+                # Добавляем текст с классом
+                self.canvas.create_text(
+                    coordinates[0], coordinates[1], anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                )
 
     def load_image(self):
         # Открываем диалоговое окно выбора файла
@@ -130,12 +166,15 @@ class ImageEditor:
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
+        
+        ratio = self.original_image.width / self.displayed_image.width
+
         for data in self.rectangles_data:
-            coordinates = data["coordinates"]
+            coordinates = data['coordinates']
             class_name = data["class"]
-            self.canvas.create_rectangle(coordinates, outline="red", width=2, tags="rectangles")
+            self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline="red", width=2, tags="rectangles")
             self.canvas.create_text(
-                coordinates[0], coordinates[1], anchor=tk.SW, text=f"Class: {class_name}", fill="red", font=("Arial", 8)
+                coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill="red", font=("Arial", 8)
             )
 
     def save_coordinates(self):
