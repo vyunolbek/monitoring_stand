@@ -3,11 +3,13 @@ from tkinter import filedialog, simpledialog
 from PIL import Image, ImageTk
 import os
 import json
-import pytesseract
+import difflib
+import numpy as np
+import cv2
+import easyocr
 
 class ImageEditor:
     def __init__(self, root, save_path):
-        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         self.root = root
         self.root.title("Image Editor")
 
@@ -32,6 +34,7 @@ class ImageEditor:
         self.image_path = None
         self.original_image = None
         self.displayed_image = None
+        self.ratio = None
 
         # Привязываем обработчики к событиям мыши
         self.canvas.bind("<Button-1>", self.on_mouse_click)
@@ -48,6 +51,8 @@ class ImageEditor:
         # Создаем кнопку для загрузки изображения для проверки
         self.load_image_button = tk.Button(root, text="Загрузить изображение", command=self.load_image_for_check)
         self.load_image_button.pack(side=tk.TOP)
+
+        self.reader = easyocr.Reader(['en'])
 
     def load_coordinates_for_check(self):
         # Загрузить JSON с координатами для проверки
@@ -76,16 +81,31 @@ class ImageEditor:
             for data in self.rectangles_data:
                 coordinates = data["coordinates"]
                 region = self.original_image.crop(coordinates)
-                text = pytesseract.image_to_string(region, lang='eng')
+                region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
+                #text = pytesseract.image_to_string(region, lang='eng')
+                text = self.reader.readtext(region)[0][1]
                 class_name = data["class"]
-
+                print(text, class_name)
+                print(difflib.SequenceMatcher(None, text, class_name).ratio(), coordinates)
+                cv2.imwrite(f'{coordinates}.png', region)
                 # Рисуем прямоугольник с соответствующим цветом
-                color = "green" if text.strip() == class_name else "red"
-                self.canvas.create_rectangle(coordinates, outline=color, width=2, tags="checked_rectangles")
+                if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
+                    region = cv2.rotate(region, cv2.ROTATE_180)
+                    text = self.reader.readtext(region)[0][1]
+                    if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                        color = 'green'
+                    else:
+                        color = 'red'
+                elif difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                    color = 'green'
+                else:
+                    color = 'red'
+
+                self.canvas.create_rectangle([i * self.ratio for i in coordinates], outline=color, width=2, tags="checked_rectangles")
 
                 # Добавляем текст с классом
                 self.canvas.create_text(
-                    coordinates[0], coordinates[1], anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                    coordinates[0] * self.ratio, coordinates[1] * self.ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
                 )
 
     def load_image(self):
@@ -107,9 +127,9 @@ class ImageEditor:
         width, height = self.root.winfo_width(), self.root.winfo_height()
 
         if width > 0 and height > 0:
-            ratio = min(width / self.original_image.width, height / self.original_image.height)
-            new_width = int(self.original_image.width * ratio)
-            new_height = int(self.original_image.height * ratio)
+            self.ratio = min(width / self.original_image.width, height / self.original_image.height)
+            new_width = int(self.original_image.width * self.ratio)
+            new_height = int(self.original_image.height * self.ratio)
             self.displayed_image = self.original_image.resize((new_width, new_height), Image.LANCZOS)
 
     def display_image(self):
