@@ -47,14 +47,21 @@ class Buttons(object):
     
 
     @staticmethod
-    def create() -> QPushButton:
+    def create_button() -> QPushButton:
         button = QPushButton("Создать")
-        bd(button).create()
+        bd(button).create_button()
         return button
     
 
     @staticmethod
-    def cancel() -> QPushButton:
+    def select_button() -> QPushButton:
+        button = QPushButton("Выбрать")
+        bd(button).select_button()
+        return button
+    
+
+    @staticmethod
+    def cancel_button() -> QPushButton:
         button = QPushButton("Отмена")
-        bd(button).cancel()
+        bd(button).cancel_button()
         return button

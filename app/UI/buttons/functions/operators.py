@@ -8,9 +8,9 @@ class Operator(object):
 
     def __init__(self):
         self.operators: list = ["+ Добавить нового оператора"]
-        self.push = "QComboBox {background-color: #d6d6d6; color: black; border-radius: 10px;}"
-        self.hover = "QComboBox:hover {background-color: #b3b3b3; color: white;}"
-        self.pressed = "QComboBox:pressed {background-color: #999999; color: white;}"
+        self.push = "QComboBox {background-color: #1a1c20; color: white; border-radius: 10px;}"
+        self.hover = "QComboBox:hover {background-color: #f0a500; color: white;}"
+        self.pressed = "QComboBox:pressed {background-color: #1a1c20; color: white;}"
 
 
     def __get_operators(self) -> None:
