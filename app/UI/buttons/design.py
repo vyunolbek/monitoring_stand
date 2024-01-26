@@ -63,6 +63,14 @@ class ButtonsDesign(object):
         return self.button
     
 
+    def save_button(self) -> QPushButton:
+        """Save button design"""
+        self.button.setFixedSize(self.width, self.height)
+        self.button.setFont(QFont(self.type_font, self.size_font))
+        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
+        return self.button
+    
+
     def select_button(self) -> QPushButton:    
         """Select button design"""
         self.button.setFixedSize(self.width, self.height)
