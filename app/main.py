@@ -1,7 +1,8 @@
 import sys
+from PIL import Image
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import Qt, QPoint
-from PyQt6 import QtCore, QtGui, QtWidgets, uic
+from PyQt6.QtCore import Qt
+from PyQt6 import QtCore, QtGui
 
 from UI.buttons.create import Buttons as bttns
 from UI.buttons.functions.operators import Operator as slct_oprtr
@@ -19,10 +20,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Optical control stand")
         self.img_path = "imgs/base/test1.jpg"
 
-        central_widget = wdts.main_widget(self)
-        self.setCentralWidget(central_widget)
+        self.central_widget = wdts.main_widget(self)
+        self.setCentralWidget(self.central_widget)
 
-        self.layout = QVBoxLayout(central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
         self.layout.setSpacing(5)
 
         self.operator_label = lbls(operator="None",
@@ -34,7 +35,7 @@ class MainWindow(QMainWindow):
         self.img_label = pxmp(img_path=self.img_path, 
                               window_width=self.width, 
                               window_height=self.height, 
-                              img_label=self.img_label).img_pixmap_main()
+                              img_label=self.img_label).img_pixmap()
         self.layout.addWidget(self.img_label, 
                               alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -71,17 +72,43 @@ class MainWindow(QMainWindow):
                 self.check_markup_button,
                 self.select_operator_button]
 
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.start_pos = e.position()
+
+    def mouseMoveEvent(self, e):
+        if self.start_pos is not None:
+            canvas = self.label.pixmap()
+            painter = QtGui.QPainter(canvas)
+            painter.setPen(QtGui.QPen(Qt.GlobalColor.red, 5, Qt.PenStyle.SolidLine))
+            rect = QtCore.QRect(int(self.start_pos.x()), int(self.start_pos.y()), int(e.position().x() - self.start_pos.x()), int(e.position().y() - self.start_pos.y())).normalized()
+            painter.drawRect(rect)
+            painter.end()
+            self.label.setPixmap(canvas)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.start_pos = None
     
+
     def __create_markup(self) -> None:
+        self.img_label.deleteLater()
         for button in self.__buttons_list():
-            button.hide()
+            button.deleteLater()
+
+        img_path = "imgs/resized/test1.jpg"
         
-        self.label = QtWidgets.QLabel()
-        canvas = QtGui.QPixmap(400, 300)
-        canvas.fill(Qt.GlobalColor.white)
-        self.label.setPixmap(canvas)
-        self.setCentralWidget(self.label)
-        self.draw_something()
+        self.markup_label = QLabel()
+        self.markup_label = pxmp(img_path=self.img_path, 
+                              window_width=self.width, 
+                              window_height=self.height, 
+                              img_label=self.img_label).img_pixmap_markup()
+        self.layout.addWidget(self.label, 
+                              alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.start_pos = None
+        
 
         self.save_button = bttns.save_button()
         self.layout.addWidget(self.save_button, 
@@ -91,6 +118,7 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.cancel_button, 
                               alignment=Qt.AlignmentFlag.AlignCenter)
         
+        self.layout.addStretch(10)
 
     def __save_markup(self) -> None:
         pass
@@ -105,13 +133,14 @@ class MainWindow(QMainWindow):
 
 
     def __select_operator(self) -> None:
-        self.img_label.hide()
+        self.img_label.deleteLater()
         for button in self.__buttons_list():
-            button.hide()
+            button.deleteLater()
         
         self.create_operator_button = slct_oprtr().create_operator_button()
         self.layout.addWidget(self.create_operator_button, 
                               alignment=Qt.AlignmentFlag.AlignCenter)
+        self.create_operator_button.clicked.connect(self.__clicked_create_operator_button)
 
         self.select_operator_button = slct_oprtr().select_operator_button()
         self.layout.addWidget(self.select_operator_button, 
@@ -120,8 +149,31 @@ class MainWindow(QMainWindow):
         self.back_button = slct_oprtr().back_button()
         self.layout.addWidget(self.back_button, 
                               alignment=Qt.AlignmentFlag.AlignCenter)
+        self.back_button.clicked.connect()
         
         self.layout.addStretch(10)
+
+    
+    def __clicked_create_operator_button(self) -> None:
+        self.create_operator_button.deleteLater()
+        self.select_operator_button.deleteLater()
+        self.back_button.deleteLater()
+
+        self.operator_lineedit = slct_oprtr().operator_lineedit()
+        self.layout.addWidget(self.operator_lineedit, 
+                              alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        self.create_button = slct_oprtr().create_button()
+        self.layout.addWidget(self.create_button, 
+                              alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        self.back_button = slct_oprtr().back_button()
+        self.layout.addWidget(self.back_button, 
+                              alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        self.layout.addStretch(10)
+        
+
         
 
 if __name__ == '__main__':

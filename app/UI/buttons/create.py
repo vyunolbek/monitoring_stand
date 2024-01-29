@@ -32,33 +32,3 @@ class Buttons(object):
         button = QPushButton("Выбрать оператора")
         bd(button).select_operator_button()
         return button
-    
-
-    def create_new_operator_button() -> QPushButton:
-        button = QPushButton("Создать оператора")
-        bd(button).create_new_operator_button()
-        return button
-    
-
-    def create_button() -> QPushButton:
-        button = QPushButton("Создать")
-        bd(button).create_button()
-        return button
-    
-    
-    def save_button() -> QPushButton:
-        button = QPushButton("Сохранить")
-        bd(button).save_button()
-        return button
-    
-
-    def select_button() -> QPushButton:
-        button = QPushButton("Выбрать")
-        bd(button).select_button()
-        return button
-    
-
-    def cancel_button() -> QPushButton:
-        button = QPushButton("Отмена")
-        bd(button).cancel_button()
-        return button
