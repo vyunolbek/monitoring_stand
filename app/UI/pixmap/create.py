@@ -16,7 +16,7 @@ class Pixmap(object):
 
     def img_pixmap(self) -> QLabel:
         """Create pixmap for image label."""
-        resized_img = ir(img_path=self.img_path,
+        resized_img, ratio = ir(img_path=self.img_path,
                          window_width=self.window_width,
                          window_height=self.window_height).resize_image()
         
@@ -28,7 +28,7 @@ class Pixmap(object):
 
     def img_pixmap_markup(self) -> QLabel:
         """Create pixmap for markup label."""
-        resized_img = ir(img_path=self.img_path,
+        resized_img, ratio = ir(img_path=self.img_path,
                          window_width=self.window_width,
                          window_height=self.window_height).resize_image()
         

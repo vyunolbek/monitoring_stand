@@ -2,8 +2,6 @@ import sys
 from PIL import Image
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainter, QPen, QColor
-from PyQt6.QtCore import QPoint
 from PyQt6 import QtCore, QtGui
 
 from UI.buttons.create import Buttons as bttns
@@ -91,6 +89,8 @@ class MainWindow(QMainWindow):
                               alignment=Qt.AlignmentFlag.AlignLeft)
         self.select_operator_button.clicked.connect(self.__select_operator)
 
+        self.base_image = None
+
     
     def __buttons_list(self) -> list:
         return [self.create_markup_button,
@@ -98,23 +98,26 @@ class MainWindow(QMainWindow):
                 self.upload_markup_button,
                 self.check_markup_button,
                 self.select_operator_button]
-        
+    
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
             self.start_pos = e.position()
-
+            self.base_image = self.img_markup_label.pixmap().copy()
 
     def mouseMoveEvent(self, e):
-        if self.start_pos is not None:
-            canvas = self.img_markup_label.pixmap()
+        if self.start_pos is not None and self.base_image is not None:
+            canvas = self.base_image.copy()
             painter = QtGui.QPainter(canvas)
             painter.setPen(QtGui.QPen(Qt.GlobalColor.red, 5, Qt.PenStyle.SolidLine))
-            rect = QtCore.QRect(int(self.start_pos.x()), int(self.start_pos.y()), int(e.position().x() - self.start_pos.x()), int(e.position().y() - self.start_pos.y())).normalized()
+            start_pos_x = int(self.start_pos.x())
+            start_pos_y = int(self.start_pos.y())
+            end_pos_x = int(e.position().x() )
+            end_pos_y = int(e.position().y())
+            rect = QtCore.QRect(start_pos_x, start_pos_y, end_pos_x - start_pos_x, end_pos_y - start_pos_y)
             painter.drawRect(rect)
             painter.end()
             self.img_markup_label.setPixmap(canvas)
-
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:

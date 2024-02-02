@@ -9,7 +9,7 @@ class ImagesResize(object):
         self.window_height = window_height
     
 
-    def resize_image(self) -> str:
+    def resize_image(self) -> tuple:
 
         with Image.open(self.img_path) as img:
             original_width, original_height = img.size
@@ -27,4 +27,4 @@ class ImagesResize(object):
 
             resized_img.save(f"{self.img_path[:5]}resized{self.img_path[sindex:-4]}.jpg")
             
-            return f"{self.img_path[:5]}resized{self.img_path[sindex:-4]}.jpg"
+            return (f"{self.img_path[:5]}resized{self.img_path[sindex:-4]}.jpg", aspect_ratio)
