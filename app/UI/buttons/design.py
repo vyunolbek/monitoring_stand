@@ -15,6 +15,22 @@ class ButtonsDesign(object):
         self.pressed = "QPushButton:pressed {background-color: #cf7500; color: white;}"
 
 
+    def save_button(self) -> QPushButton:
+        """Save button design"""
+        self.button.setFixedSize(self.width, self.height)
+        self.button.setFont(QFont(self.type_font, self.size_font))
+        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
+        return self.button
+    
+    
+    def cancel_button(self) -> QPushButton:
+        """Cancel button design"""
+        self.button.setFixedSize(self.width, self.height)
+        self.button.setFont(QFont(self.type_font, self.size_font))
+        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
+        return self.button
+    
+
     def create_markup_button(self) -> QPushButton:
         """Create markup button design"""
         self.button.setFixedSize(self.width, self.height)
@@ -49,38 +65,6 @@ class ButtonsDesign(object):
 
     def select_operator_button(self) -> QPushButton:
         """Select operator button design"""
-        self.button.setFixedSize(self.width, self.height)
-        self.button.setFont(QFont(self.type_font, self.size_font))
-        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
-        return self.button
-
-
-    def create_button(self) -> QPushButton:
-        """Create button design"""
-        self.button.setFixedSize(self.width, self.height)
-        self.button.setFont(QFont(self.type_font, self.size_font))
-        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
-        return self.button
-    
-
-    def save_button(self) -> QPushButton:
-        """Save button design"""
-        self.button.setFixedSize(self.width, self.height)
-        self.button.setFont(QFont(self.type_font, self.size_font))
-        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
-        return self.button
-    
-
-    def select_button(self) -> QPushButton:    
-        """Select button design"""
-        self.button.setFixedSize(self.width, self.height)
-        self.button.setFont(QFont(self.type_font, self.size_font))
-        self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")
-        return self.button
-    
-
-    def cancel_button(self) -> QPushButton:
-        """Cancel button design"""
         self.button.setFixedSize(self.width, self.height)
         self.button.setFont(QFont(self.type_font, self.size_font))
         self.button.setStyleSheet(f"{self.push} {self.hover} {self.pressed}")

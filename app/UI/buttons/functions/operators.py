@@ -2,6 +2,7 @@ import os
 import json
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt
 
 
 class Operator(object):
@@ -10,38 +11,29 @@ class Operator(object):
         self.push_lineedit = "QLineEdit {background-color: #1a1c20; color: white; border-radius: 10px;}"
         self.hover_lineedit = "QLineEdit:hover {background-color: #f0a500; color: white;}"
         self.pressed_lineedit = "QLineEdit:pressed {background-color: #1a1c20; color: white;}"
-        self.push_box = "QComboBox {background-color: #1a1c20; color: white; border-radius: 10px;}"
-        self.hover_box = "QComboBox:hover {background-color: #f0a500; color: white;}"
-        self.pressed_box = "QComboBox:pressed {background-color: #1a1c20; color: white;}"
         self.push_button = "QPushButton {background-color: #1a1c20; color: white; border-radius: 10px;}"
         self.hover_button = "QPushButton:hover {background-color: #f0a500; color: white;}"
         self.pressed_button = "QPushButton:pressed {background-color: #1a1c20; color: white;}"
-
-
-    def create_button(self) -> QPushButton:
-        """Create button."""
-        self.create_button = QPushButton("Создать")
-        self.create_button.setFixedSize(300, 50)
-        self.create_button.setFont(QFont("Arial", 14))
-        self.create_button.setStyleSheet(f"{self.push_button}{self.hover_button}{self.pressed_button}")
-        return self.create_button
     
     
-    def operator_lineedit(self) -> QLineEdit:
+    def operator_lineedit(self):
         """Operator lineedit."""
         self.operator_lineedit = QLineEdit()
-        self.operator_lineedit.setFixedSize(300, 50)
+        self.operator_lineedit.setFixedSize(250, 50)
         self.operator_lineedit.setFont(QFont("Arial", 14))
         self.operator_lineedit.setStyleSheet(f"{self.push_lineedit}{self.hover_lineedit}{self.pressed_lineedit}")
+        self.operator_lineedit.setPlaceholderText("Введите имя оператора")
+        self.operator_lineedit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.operator_lineedit.setMaxLength(20)
         return self.operator_lineedit
-
-    def create_operator_button(self) -> QPushButton:
-        """Create operator button."""
-        self.create_operator = QPushButton("Создать оператора")
-        self.create_operator.setFixedSize(300, 50)
-        self.create_operator.setFont(QFont("Arial", 14))
-        self.create_operator.setStyleSheet(f"{self.push_button}{self.hover_button}{self.pressed_button}")
-        return self.create_operator
+    
+    def __operator_changed(self):
+        """Operator lineedit changed."""
+        self.operator_label.setText(self.operator_lineedit.text())
+        self.operator_label.show()
+        self.operator_lineedit.hide()
+        self.save_button.show()
+        self.cancel_button.show()
 
 
     def __get_operators(self) -> list:
@@ -56,21 +48,3 @@ class Operator(object):
                     operators.append(content["operator"])
 
         return operators
-
-
-    def select_operator_button(self) -> QPushButton:
-        """Select operator button."""
-        self.select_operator = QPushButton("Выбрать оператора")
-        self.select_operator.setFixedSize(300, 50)
-        self.select_operator.setFont(QFont("Arial", 14))
-        self.select_operator.setStyleSheet(f"{self.push_button}{self.hover_button}{self.pressed_button}")
-        return self.select_operator
-
-
-    def back_button(self) -> QPushButton:
-        """Back button."""
-        self.back_button = QPushButton("Назад")
-        self.back_button.setFixedSize(300, 50)
-        self.back_button.setFont(QFont("Arial", 14))
-        self.back_button.setStyleSheet(f"{self.push_button}{self.hover_button}{self.pressed_button}")
-        return self.back_button  

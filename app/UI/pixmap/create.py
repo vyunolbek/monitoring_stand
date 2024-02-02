@@ -7,11 +7,11 @@ from UI.pixmap.imgs_resize import ImagesResize as ir
 
 class Pixmap(object):
 
-    def __init__(self, data: dict):
-        self.img_path: str = data["img_path"]
-        self.window_width: int = data["window_width"]
-        self.window_height: int = data["window_height"]
-        self.img_label: QLabel = data["img_label"]
+    def __init__(self, img_path: str, window_width: int, window_height: int, img_label: QLabel):
+        self.img_path: str = img_path
+        self.window_width: int = window_width
+        self.window_height: int = window_height
+        self.img_label: QLabel = img_label
     
 
     def img_pixmap(self) -> QLabel:
