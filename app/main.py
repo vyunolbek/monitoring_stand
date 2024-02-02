@@ -98,15 +98,6 @@ class MainWindow(QMainWindow):
                 self.upload_markup_button,
                 self.check_markup_button,
                 self.select_operator_button]
-    
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setPen(QPen(QColor("black"), 2, Qt.PenStyle.SolidLine))
-        painter.drawLine(0, 100, self.width, 100)
-        painter.drawLine(0, 100, 0, self.height)
-        painter.drawLine(self.width, 100, self.width, self.height)
-        painter.drawLine(0, self.height, self.width, self.height)
-        painter.end()
         
 
     def mousePressEvent(self, e):
