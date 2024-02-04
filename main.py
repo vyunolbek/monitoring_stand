@@ -7,6 +7,7 @@ import difflib
 import numpy as np
 import cv2
 import easyocr
+import time
 
 class ImageEditor:
     def __init__(self, root, save_path):
@@ -52,7 +53,25 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Загрузить изображение", command=self.load_image_for_check)
         self.load_image_button.pack(side=tk.TOP)
 
+        self.load_image_button = tk.Button(root, text="Сделать снимок", command=self.get_cap)
+        self.load_image_button.pack(side=tk.TOP)
+
+        self.cap = cv2.VideoCapture(0)
+
         self.reader = easyocr.Reader(['en'])
+
+    def get_cap(self):
+        flag = True
+        while True:
+            _, frame = self.cap.read()
+            frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            self.original_image = frame
+            self.resize_image()
+            self.display_image()
+
+            # Рисуем сохраненные квадратики
+            self.draw_saved_rectangles()
+            self.root.update()
 
     def load_coordinates_for_check(self):
         # Загрузить JSON с координатами для проверки
@@ -77,13 +96,13 @@ class ImageEditor:
 
     def check_text(self):
         # Проверяем текст на квадратах с использованием Tesseract OCR
-        if self.image_path:
-            for data in self.rectangles_data:
-                coordinates = data["coordinates"]
+        if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
+            for j, data in enumerate(self.rectangles_data):
+                coordinates = list(map(int, data["coordinates"]))
                 # region = self.original_image.crop(coordinates)
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
-                print(region)
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+                cv2.imshow('reg', region)
                 #text = pytesseract.image_to_string(region, lang='eng')
                 class_name = data["class"]
                 cv2.imwrite(f'{coordinates}.png', region)
@@ -100,24 +119,32 @@ class ImageEditor:
                         color = 'red'
 
                 if class_name != 'p':
+                    text = self.reader.readtext(region)
+                    
                     # Рисуем прямоугольник с соответствующим цветом
-                    if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
-                        region = cv2.rotate(region, cv2.ROTATE_180)
-                        text = self.reader.readtext(region)[0][1]
-                        if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                    if len(text) != 0:
+                        if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
+                            region = cv2.rotate(region, cv2.ROTATE_180)
+                            text = self.reader.readtext(region)[0][1]
+                            if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                                color = 'green'
+                            else:
+                                color = 'red'
+                        elif difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
                             color = 'green'
                         else:
                             color = 'red'
-                    elif difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
-                        color = 'green'
                     else:
                         color = 'red'
 
-                self.canvas.create_rectangle([i * self.ratio for i in coordinates], outline=color, width=2, tags="checked_rectangles")
+                self.canvas.delete("checked_rectangles")
+                self.canvas.delete("red")
+                self.rectangles_data[j]['status'] = color
+                self.canvas.create_rectangle([i * self.ratio for i in coordinates], outline=self.rectangles_data[j]['status'], width=4, tags="checked_rectangles")
 
                 # Добавляем текст с классом
                 self.canvas.create_text(
-                    coordinates[0] * self.ratio, coordinates[1] * self.ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                    coordinates[0] * self.ratio, coordinates[1] * self.ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=self.rectangles_data[j]['status'], font=("Arial", 8)
                 )
 
     def load_image(self):
@@ -136,13 +163,11 @@ class ImageEditor:
 
     def resize_image(self):
         # Изменяем размер изображения для отображения его на холсте
-        width, height = self.root.winfo_width(), self.root.winfo_height() - 120
+        width, height = self.root.winfo_width(), self.root.winfo_height()
 
         if width > 0 and height > 0:
             self.ratio = min(width / self.original_image.width, height / self.original_image.height)
-            new_width = int(self.original_image.width * self.ratio)
-            new_height = int(self.original_image.height * self.ratio)
-            self.displayed_image = self.original_image.resize((new_width, new_height), Image.LANCZOS)
+            self.displayed_image = self.original_image.resize((width, height), Image.LANCZOS)
 
     def display_image(self):
         # Очищаем холст
@@ -157,14 +182,18 @@ class ImageEditor:
 
     def on_mouse_click(self, event):
         # Начинаем рисование при клике
+        ratio = self.original_image.width / self.displayed_image.width
         self.start_x, self.start_y = event.x, event.y
+        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red'})
 
     def on_mouse_drag(self, event):
+        ratio = self.original_image.width / self.displayed_image.width
+        self.rectangles_data.pop()
         # Рисуем временный прямоугольник при перемещении мыши (пока кнопка мыши нажата)
-        self.canvas.delete("temp_rectangle")
-        self.canvas.create_rectangle(
-            self.start_x, self.start_y, event.x, event.y, outline="red", width=2, tags="temp_rectangle"
-        )
+        # self.canvas.create_rectangle(
+        #     self.start_x, self.start_y, event.x, event.y, outline="red", width=2, tags="temp_rectangle"
+        # )
+        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red'})
 
     def on_mouse_release(self, event):
         # Завершаем рисование при отпускании кнопки мыши
@@ -188,10 +217,10 @@ class ImageEditor:
 
         if class_name != 'p':
             # Рисуем окончательный прямоугольник на исходном изображении
-            self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags="rectangles")
+            self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name})
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red'})
 
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
@@ -204,26 +233,37 @@ class ImageEditor:
             avg_color_per_row = np.average(region, axis=0)
             avg_color = np.average(avg_color_per_row, axis=0)
             
-            self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags="rectangles")
+            # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist()})
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist(), "status": "red"})
 
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
+            self.canvas.delete("temp_rectangles")
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
         
         ratio = self.original_image.width / self.displayed_image.width
 
-        for data in self.rectangles_data:
+        for j, data in enumerate(self.rectangles_data):
             coordinates = data['coordinates']
             class_name = data["class"]
-            self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline="red", width=2, tags="rectangles")
-            self.canvas.create_text(
-                coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill="red", font=("Arial", 8)
-            )
+            color = self.rectangles_data[j]['status']
+            if class_name == 'None' and color == 'red':
+                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=2, tags=["temp_rectangles", "red"])
+                continue
+            elif color == 'red':
+                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=2, tags=["rectangles", 'red'])
+                self.canvas.create_text(
+                coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                )
+            else:
+                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=4, tags=["rectangles", 'green'])
+                self.canvas.create_text(
+                    coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                )
 
     def save_coordinates(self):
         # Выводим координаты и классы в консоль (вы можете изменить эту часть для сохранения в файл и т.д.)
