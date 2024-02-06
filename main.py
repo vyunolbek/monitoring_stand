@@ -20,10 +20,6 @@ class ImageEditor:
         self.canvas = tk.Canvas(root)
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Создаем кнопку для загрузки изображения
-        self.load_button = tk.Button(root, text="Выбрать изображение", command=self.load_image)
-        self.load_button.pack(side=tk.TOP)
-
         # Создаем кнопку для сохранения координат квадратиков
         self.save_button = tk.Button(root, text="Сохранить координаты", command=self.save_coordinates)
         self.save_button.pack(side=tk.TOP)
@@ -53,7 +49,7 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Загрузить изображение", command=self.load_image_for_check)
         self.load_image_button.pack(side=tk.TOP)
 
-        self.load_image_button = tk.Button(root, text="Сделать снимок", command=self.get_cap)
+        self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
         self.cap = cv2.VideoCapture(0)
@@ -86,7 +82,7 @@ class ImageEditor:
 
     def load_image_for_check(self):
         # Загрузить изображение для проверки
-        file_path = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
+        file_path = filedialog.askopenfilename()
         if file_path:
             self.image_path = file_path
             self.original_image = Image.open(file_path)
@@ -99,11 +95,8 @@ class ImageEditor:
         if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
-                # region = self.original_image.crop(coordinates)
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
-                cv2.imshow('reg', region)
-                #text = pytesseract.image_to_string(region, lang='eng')
                 class_name = data["class"]
                 cv2.imwrite(f'{coordinates}.png', region)
 
@@ -184,16 +177,12 @@ class ImageEditor:
         # Начинаем рисование при клике
         ratio = self.original_image.width / self.displayed_image.width
         self.start_x, self.start_y = event.x, event.y
-        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red'})
+        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_drag(self, event):
         ratio = self.original_image.width / self.displayed_image.width
         self.rectangles_data.pop()
-        # Рисуем временный прямоугольник при перемещении мыши (пока кнопка мыши нажата)
-        # self.canvas.create_rectangle(
-        #     self.start_x, self.start_y, event.x, event.y, outline="red", width=2, tags="temp_rectangle"
-        # )
-        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red'})
+        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_release(self, event):
         # Завершаем рисование при отпускании кнопки мыши
@@ -220,10 +209,11 @@ class ImageEditor:
             self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red'})
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
+            self.canvas.delete("temp_rectangles")
 
         elif class_name == 'p':
             region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
@@ -236,7 +226,7 @@ class ImageEditor:
             # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist(), "status": "red"})
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist(), "status": "red", "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
@@ -244,7 +234,6 @@ class ImageEditor:
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
-        
         ratio = self.original_image.width / self.displayed_image.width
 
         for j, data in enumerate(self.rectangles_data):
