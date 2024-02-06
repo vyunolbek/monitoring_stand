@@ -55,6 +55,7 @@ class ImageEditor:
         self.cap = cv2.VideoCapture(0)
 
         self.reader = easyocr.Reader(['en'])
+        self.is_file = False
 
     def get_cap(self):
         flag = True
@@ -81,6 +82,7 @@ class ImageEditor:
             self.draw_saved_rectangles()
 
     def load_image_for_check(self):
+        self.is_file = True
         # Загрузить изображение для проверки
         file_path = filedialog.askopenfilename()
         if file_path:
@@ -113,9 +115,9 @@ class ImageEditor:
 
                 if class_name != 'p':
                     text = self.reader.readtext(region)
-                    
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
+                        text = text[0][1]
                         if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
                             region = cv2.rotate(region, cv2.ROTATE_180)
                             text = self.reader.readtext(region)[0][1]
@@ -141,6 +143,7 @@ class ImageEditor:
                 )
 
     def load_image(self):
+        self.is_file = True
         # Открываем диалоговое окно выбора файла
         file_path = filedialog.askopenfilename(filetypes=[("Изображения", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
 
@@ -181,8 +184,12 @@ class ImageEditor:
 
     def on_mouse_drag(self, event):
         ratio = self.original_image.width / self.displayed_image.width
-        self.rectangles_data.pop()
-        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+        if self.is_file:
+            self.canvas.delete('temp_rectangle')
+            self.canvas.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline='red', width=2, tags='temp_rectangle')
+        else:
+            self.rectangles_data.pop()
+            self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_release(self, event):
         # Завершаем рисование при отпускании кнопки мыши
@@ -259,6 +266,10 @@ class ImageEditor:
         print("Координаты квадратиков:")
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
+        
+        for i, data in enumerate(self.rectangles_data):
+            if data['class'] == 'None':
+                self.rectangles_data.pop(i)
 
         with open(os.path.join(self.save_path, 'coords.json'), 'w') as f:
             json.dump(self.rectangles_data, f)
