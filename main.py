@@ -79,7 +79,7 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
-        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
+        self.cap = cv2.VideoCapture(0)
 
         self.reader = easyocr.Reader(['en'])
         self.is_file = False
@@ -122,6 +122,7 @@ class ImageEditor:
     def check_text(self):
         # Проверяем текст на квадратах с использованием Tesseract OCR
         if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
+            self.canvas.delete("checked_rectangles")
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
@@ -145,10 +146,10 @@ class ImageEditor:
 
                 if class_name != 'p':
                     text = self.reader.readtext(region)
-                    print(text)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
                         text = text[0][1]
+                        print(text)
                         if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
                             region = cv2.rotate(region, cv2.ROTATE_180)
                             text = self.reader.readtext(region)[0][1]
@@ -163,22 +164,20 @@ class ImageEditor:
                     else:
                         color = 'red'
 
-                self.canvas.delete("checked_rectangles")
                 self.canvas.delete("red")
                 self.rectangles_data[j]['status'] = color
                 self.canvas.create_rectangle([i * self.ratio for i in coordinates], outline=self.rectangles_data[j]['status'], width=4, tags="checked_rectangles")
-
                 # Добавляем текст с классом
                 self.canvas.create_text(
                     coordinates[0] * self.ratio, coordinates[1] * self.ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=self.rectangles_data[j]['status'], font=("Arial", 8)
                 )
 
     def load_image(self):
-        self.is_file = True
         # Открываем диалоговое окно выбора файла
         file_path = filedialog.askopenfilename(filetypes=[("Изображения", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
 
         if file_path:
+            self.is_file = True
             # Загружаем изображение и обновляем холст
             self.image_path = file_path
             self.original_image = Image.open(file_path)
@@ -244,7 +243,7 @@ class ImageEditor:
 
         if class_name != 'p':
             # Рисуем окончательный прямоугольник на исходном изображении
-            self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
+            # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
             self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
@@ -269,6 +268,8 @@ class ImageEditor:
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
+        
+        self.draw_saved_rectangles()
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
@@ -294,6 +295,7 @@ class ImageEditor:
 
     def save_coordinates(self):
         # Выводим координаты и классы в консоль (вы можете изменить эту часть для сохранения в файл и т.д.)
+        file_name = simpledialog.askstring("Input", "Enter the preset name:")
         print("Координаты квадратиков:")
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
@@ -302,7 +304,7 @@ class ImageEditor:
             if data['class'] == 'None':
                 self.rectangles_data.pop(i)
 
-        with open(os.path.join(self.save_path, 'coords.json'), 'w') as f:
+        with open(os.path.join(self.save_path, f'{file_name}.json'), 'w') as f:
             json.dump(self.rectangles_data, f)
             for data in self.rectangles_data:
                 print("Coordinates:", data["coordinates"])
