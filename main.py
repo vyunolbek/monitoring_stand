@@ -7,7 +7,8 @@ import difflib
 import numpy as np
 import cv2
 import easyocr
-import time
+from types import NoneType
+
 
 def gstreamer_pipeline(
     sensor_id=0,
@@ -79,23 +80,34 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
+        self.load_image_button = tk.Button(root, text="Выключить видео", command=self.stop_cap)
+        self.load_image_button.pack(side=tk.TOP)
+
         self.cap = cv2.VideoCapture(0)
+        self.video = True
 
         self.reader = easyocr.Reader(['en'])
         self.is_file = False
 
     def get_cap(self):
-        flag = True
-        while True:
+        self.is_file = False
+        self.video = True
+        while True and self.video:
             _, frame = self.cap.read()
-            frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            self.original_image = frame
-            self.resize_image()
-            self.display_image()
+            if _:
+                frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                self.original_image = frame
+                self.resize_image()
+                self.display_image()
 
-            # Рисуем сохраненные квадратики
-            self.draw_saved_rectangles()
-            self.root.update()
+                # Рисуем сохраненные квадратики
+                self.draw_saved_rectangles()
+                self.root.update()
+            else:
+                break
+    
+    def stop_cap(self):
+        self.video = False
 
     def load_coordinates_for_check(self):
         # Загрузить JSON с координатами для проверки
@@ -240,8 +252,14 @@ class ImageEditor:
 
         # Окно для ввода класса
         class_name = simpledialog.askstring("Input", "Enter class name for the rectangle:")
+        print(class_name, type(class_name))
+        if type(class_name) == NoneType:
+            self.canvas.delete('temp_rectangle')
+            self.rectangles_data.pop()
+            self.draw_saved_rectangles()
+            pass
+        elif class_name != 'p':
 
-        if class_name != 'p':
             # Рисуем окончательный прямоугольник на исходном изображении
             # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
@@ -251,6 +269,7 @@ class ImageEditor:
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
+            self.draw_saved_rectangles()
 
         elif class_name == 'p':
             region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
@@ -269,7 +288,7 @@ class ImageEditor:
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
         
-        self.draw_saved_rectangles()
+            self.draw_saved_rectangles()
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
