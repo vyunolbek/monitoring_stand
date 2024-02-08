@@ -9,6 +9,33 @@ import cv2
 import easyocr
 import time
 
+def gstreamer_pipeline(
+    sensor_id=0,
+    capture_width=1920,
+    capture_height=1080,
+    display_width=960,
+    display_height=540,
+    framerate=30,
+    flip_method=0,
+):
+    return (
+        "nvarguscamerasrc sensor-id=%d ! "
+        "video/x-raw(memory:NVMM), width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! "
+        "nvvidconv flip-method=%d ! "
+        "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
+        "videoconvert ! "
+        "video/x-raw, format=(string)BGR ! appsink"
+        % (
+            sensor_id,
+            capture_width,
+            capture_height,
+            framerate,
+            flip_method,
+            display_width,
+            display_height,
+        )
+    )
+
 class ImageEditor:
     def __init__(self, root, save_path):
         self.root = root
@@ -52,7 +79,7 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
 
         self.reader = easyocr.Reader(['en'])
         self.is_file = False
@@ -102,6 +129,9 @@ class ImageEditor:
                 class_name = data["class"]
                 cv2.imwrite(f'{coordinates}.png', region)
 
+                if class_name == 'None':
+                    continue
+
                 if class_name == 'p':
                     avg_color_per_row = np.average(region, axis=0)
                     avg_color = np.average(avg_color_per_row, axis=0)
@@ -115,6 +145,7 @@ class ImageEditor:
 
                 if class_name != 'p':
                     text = self.reader.readtext(region)
+                    print(text)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
                         text = text[0][1]
