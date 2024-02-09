@@ -47,10 +47,6 @@ class ImageEditor:
         self.canvas = tk.Canvas(root)
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Создаем кнопку для сохранения координат квадратиков
-        self.save_button = tk.Button(root, text="Сохранить координаты", command=self.save_coordinates)
-        self.save_button.pack(side=tk.TOP)
-
         # Список для хранения данных о квадратиках (координаты, класс)
         self.rectangles_data = []
 
@@ -69,8 +65,15 @@ class ImageEditor:
         self.check_button = tk.Button(root, text="Проверить", command=self.check_text)
         self.check_button.pack(side=tk.TOP)
 
+        # Создаем кнопку для сохранения координат квадратиков
+        self.save_button = tk.Button(root, text="Сохранить координаты", command=self.save_coordinates)
+        self.save_button.pack(side=tk.TOP)
+
         # Создаем кнопку для загрузки координат
         self.load_coords_button = tk.Button(root, text="Загрузить координаты", command=self.load_coordinates_for_check)
+        self.load_coords_button.pack(side=tk.TOP)
+
+        self.load_coords_button = tk.Button(root, text="Очистить координаты", command=self.clear_coords)
         self.load_coords_button.pack(side=tk.TOP)
 
         # Создаем кнопку для загрузки изображения для проверки
@@ -88,6 +91,12 @@ class ImageEditor:
 
         self.reader = easyocr.Reader(['en'])
         self.is_file = False
+
+    def clear_coords(self):
+        self.rectangles_data.clear()
+        self.canvas.delete('all')
+        self.display_image()
+        self.draw_saved_rectangles()
 
     def get_cap(self):
         self.is_file = False
@@ -142,8 +151,6 @@ class ImageEditor:
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
                 class_name = data["class"]
-                cv2.imwrite('orig.jpg', np.array(self.original_image))
-                cv2.imwrite(f'{coordinates}.png', region)
 
                 if class_name == 'None':
                     continue
@@ -222,7 +229,10 @@ class ImageEditor:
     def on_mouse_click(self, event):
         # Начинаем рисование при клике
         self.start_x, self.start_y = event.x, event.y
-        #self.rectangles_data.append({"coordinates": (self.start_x * self.wratio, self.start_y * self.hratio, event.x * self.wratio, event.y * self.hratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+        if not self.is_file:
+            self.rectangles_data.append({"coordinates": (self.start_x * self.wratio, self.start_y * self.hratio, event.x * self.wratio, event.y * self.hratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+        else:
+            pass
 
     def on_mouse_drag(self, event):
         if self.is_file:
@@ -233,6 +243,8 @@ class ImageEditor:
             self.rectangles_data.append({"coordinates": (self.start_x * self.wratio, self.start_y * self.hratio, event.x * self.wratio, event.y * self.hratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_release(self, event):
+        if not self.is_file:
+            self.rectangles_data.pop()
         # Завершаем рисование при отпускании кнопки мыши
         end_x, end_y = event.x, event.y
 
@@ -247,8 +259,6 @@ class ImageEditor:
         start_y = int(start_y * self.hratio)
         end_x = int(end_x * self.wratio)
         end_y = int(end_y * self.hratio)
-
-        print(self.canvas.winfo_width(), self.canvas.winfo_height(), self.wratio, self.hratio)
 
         # Окно для ввода класса
         class_name = simpledialog.askstring("Input", "Enter class name for the rectangle:")
@@ -302,7 +312,7 @@ class ImageEditor:
                 continue
             elif color == 'red':
                 print(coordinates)
-                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline='blue', width=2, tags=["rectangles", 'red'])
+                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=color, width=2, tags=["rectangles", 'red'])
                 #self.canvas.create_rectangle([coordinates[0], coordinates[2], coordinates[1], coordinates[3]], outline=color, width=2, tags=["rectangles", 'red'])
                 self.canvas.create_text(
                 coordinates[0] / self.wratio, coordinates[1] / self.hratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
