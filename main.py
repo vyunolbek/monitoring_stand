@@ -7,7 +7,7 @@ import difflib
 import numpy as np
 import cv2
 import easyocr
-from types import NoneType
+#from types import NoneType
 
 
 def gstreamer_pipeline(
@@ -41,7 +41,6 @@ class ImageEditor:
     def __init__(self, root, save_path):
         self.root = root
         self.root.title("Image Editor")
-
         self.save_path = save_path
 
         # Создаем холст для рисования
@@ -59,7 +58,8 @@ class ImageEditor:
         self.image_path = None
         self.original_image = None
         self.displayed_image = None
-        self.ratio = None
+        self.wratio = float
+        self.hratio = float
 
         # Привязываем обработчики к событиям мыши
         self.canvas.bind("<Button-1>", self.on_mouse_click)
@@ -135,11 +135,14 @@ class ImageEditor:
         # Проверяем текст на квадратах с использованием Tesseract OCR
         if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
             self.canvas.delete("checked_rectangles")
+            print(self.rectangles_data)
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
+
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
                 class_name = data["class"]
+                cv2.imwrite('orig.jpg', np.array(self.original_image))
                 cv2.imwrite(f'{coordinates}.png', region)
 
                 if class_name == 'None':
@@ -150,7 +153,6 @@ class ImageEditor:
                     avg_color = np.average(avg_color_per_row, axis=0)
                     dist = np.linalg.norm(avg_color - data['color'])
                     percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
-                    print(percent)
                     if percent < 0.08:
                         color = 'green'
                     else:
@@ -161,7 +163,6 @@ class ImageEditor:
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
                         text = text[0][1]
-                        print(text)
                         if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
                             region = cv2.rotate(region, cv2.ROTATE_180)
                             text = self.reader.readtext(region)[0][1]
@@ -178,16 +179,15 @@ class ImageEditor:
 
                 self.canvas.delete("red")
                 self.rectangles_data[j]['status'] = color
-                self.canvas.create_rectangle([i * self.ratio for i in coordinates], outline=self.rectangles_data[j]['status'], width=4, tags="checked_rectangles")
+                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=self.rectangles_data[j]['status'], width=4, tags="checked_rectangles")
                 # Добавляем текст с классом
                 self.canvas.create_text(
-                    coordinates[0] * self.ratio, coordinates[1] * self.ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=self.rectangles_data[j]['status'], font=("Arial", 8)
+                    coordinates[0] / self.wratio, coordinates[1] / self.hratio, anchor=tk.SW, text=f"Class: {class_name}", fill=self.rectangles_data[j]['status'], font=("Arial", 8)
                 )
 
     def load_image(self):
         # Открываем диалоговое окно выбора файла
         file_path = filedialog.askopenfilename(filetypes=[("Изображения", "*.png;*.jpg;*.jpeg;*.gif;*.bmp")])
-
         if file_path:
             self.is_file = True
             # Загружаем изображение и обновляем холст
@@ -201,10 +201,11 @@ class ImageEditor:
 
     def resize_image(self):
         # Изменяем размер изображения для отображения его на холсте
-        width, height = self.root.winfo_width(), self.root.winfo_height()
+        width, height = self.canvas.winfo_width(), self.canvas.winfo_height()
 
         if width > 0 and height > 0:
-            self.ratio = min(width / self.original_image.width, height / self.original_image.height)
+            self.wratio = self.original_image.width / width
+            self.hratio = self.original_image.height / height
             self.displayed_image = self.original_image.resize((width, height), Image.LANCZOS)
 
     def display_image(self):
@@ -220,40 +221,38 @@ class ImageEditor:
 
     def on_mouse_click(self, event):
         # Начинаем рисование при клике
-        ratio = self.original_image.width / self.displayed_image.width
         self.start_x, self.start_y = event.x, event.y
-        self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+        #self.rectangles_data.append({"coordinates": (self.start_x * self.wratio, self.start_y * self.hratio, event.x * self.wratio, event.y * self.hratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_drag(self, event):
-        ratio = self.original_image.width / self.displayed_image.width
         if self.is_file:
             self.canvas.delete('temp_rectangle')
             self.canvas.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline='red', width=2, tags='temp_rectangle')
         else:
             self.rectangles_data.pop()
-            self.rectangles_data.append({"coordinates": (self.start_x * ratio, self.start_y * ratio, event.x * ratio, event.y * ratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+            self.rectangles_data.append({"coordinates": (self.start_x * self.wratio, self.start_y * self.hratio, event.x * self.wratio, event.y * self.hratio), "class": "None", 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
     def on_mouse_release(self, event):
         # Завершаем рисование при отпускании кнопки мыши
         end_x, end_y = event.x, event.y
 
         # Ограничиваем координаты
-        start_x = max(0, min(self.start_x, self.displayed_image.width))
-        start_y = max(0, min(self.start_y, self.displayed_image.height))
-        end_x = max(0, min(end_x, self.displayed_image.width))
-        end_y = max(0, min(end_y, self.displayed_image.height))
+        start_x = max(0, min(self.start_x, self.canvas.winfo_width()))
+        start_y = max(0, min(self.start_y, self.canvas.winfo_height()))
+        end_x = max(0, min(end_x, self.canvas.winfo_width()))
+        end_y = max(0, min(end_y, self.canvas.winfo_height()))
 
         # Пересчитываем координаты относительно исходного изображения
-        ratio = self.original_image.width / self.displayed_image.width
-        start_x = int(start_x * ratio)
-        start_y = int(start_y * ratio)
-        end_x = int(end_x * ratio)
-        end_y = int(end_y * ratio)
+        start_x = int(start_x * self.wratio)
+        start_y = int(start_y * self.hratio)
+        end_x = int(end_x * self.wratio)
+        end_y = int(end_y * self.hratio)
+
+        print(self.canvas.winfo_width(), self.canvas.winfo_height(), self.wratio, self.hratio)
 
         # Окно для ввода класса
         class_name = simpledialog.askstring("Input", "Enter class name for the rectangle:")
-        print(class_name, type(class_name))
-        if type(class_name) == NoneType:
+        if type(class_name) == type(None):
             self.canvas.delete('temp_rectangle')
             self.rectangles_data.pop()
             self.draw_saved_rectangles()
@@ -264,8 +263,9 @@ class ImageEditor:
             # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
 
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+            print(start_x, start_y, end_x, end_y)
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
@@ -274,7 +274,6 @@ class ImageEditor:
         elif class_name == 'p':
             region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
             region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(f'test.png', region)
 
             avg_color_per_row = np.average(region, axis=0)
             avg_color = np.average(avg_color_per_row, axis=0)
@@ -292,24 +291,26 @@ class ImageEditor:
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
-        ratio = self.original_image.width / self.displayed_image.width
+        print(self.original_image.width, self.displayed_image.width)
 
         for j, data in enumerate(self.rectangles_data):
-            coordinates = data['coordinates']
+            coordinates = list(data['coordinates'])
             class_name = data["class"]
             color = self.rectangles_data[j]['status']
             if class_name == 'None' and color == 'red':
-                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=2, tags=["temp_rectangles", "red"])
+                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=color, width=2, tags=["temp_rectangles", "red"])
                 continue
             elif color == 'red':
-                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=2, tags=["rectangles", 'red'])
+                print(coordinates)
+                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline='blue', width=2, tags=["rectangles", 'red'])
+                #self.canvas.create_rectangle([coordinates[0], coordinates[2], coordinates[1], coordinates[3]], outline=color, width=2, tags=["rectangles", 'red'])
                 self.canvas.create_text(
-                coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                coordinates[0] / self.wratio, coordinates[1] / self.hratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
                 )
             else:
-                self.canvas.create_rectangle([i / ratio for i in data["coordinates"]], outline=color, width=4, tags=["rectangles", 'green'])
+                self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=color, width=4, tags=["rectangles", 'green'])
                 self.canvas.create_text(
-                    coordinates[0] / ratio, coordinates[1] / ratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
+                    coordinates[0] / self.wratio, coordinates[1] / self.hratio, anchor=tk.SW, text=f"Class: {class_name}", fill=color, font=("Arial", 8)
                 )
 
     def save_coordinates(self):
@@ -332,6 +333,6 @@ class ImageEditor:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.attributes('-fullscreen', True)
     app = ImageEditor(root, './saved')
-    root.geometry("800x600")
     root.mainloop()
