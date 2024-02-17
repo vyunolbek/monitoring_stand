@@ -6,13 +6,12 @@ import json
 import difflib
 import numpy as np
 import cv2
-import easyocr
-#from types import NoneType
+import pytesseract
 
 def gstreamer_pipeline(
     sensor_id=0,
-    capture_width=3264,
-    capture_height=2464,
+    capture_width=1920,
+    capture_height=1080,
     display_width=960,
     display_height=540,
     framerate=21,
@@ -89,7 +88,6 @@ class ImageEditor:
 
         self.video = True
 
-        self.reader = easyocr.Reader(['en'])
         self.is_file = False
 
     def clear_coords(self):
@@ -147,7 +145,6 @@ class ImageEditor:
             print(self.rectangles_data)
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
-                print(self.original_image.shape)
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
                 cv2.imwrite('region.png', region)
@@ -167,15 +164,18 @@ class ImageEditor:
                         color = 'red'
 
                 if class_name != 'p':
-                    text = self.reader.readtext(region)
+                    region = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+                    ret, thresh = cv2.threshold(region, 127, 255, cv2.THRESH_BINARY)
+                    kernel = np.ones((3, 3), np.uint8)
+                    region = cv2.erode(thresh, kernel, iterations=1)
+                    text = pytesseract.image_to_string(Image.fromarray(region))
                     print(text)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
-                        text = text[0][1]
                         print(text)
                         if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
                             region = cv2.rotate(region, cv2.ROTATE_180)
-                            text = self.reader.readtext(region)[0][1]
+                            text = pytesseract.image_to_string(Image.fromarray(region))
                             print(text)
                             if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
                                 color = 'green'
