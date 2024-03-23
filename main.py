@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, simpledialog
+from tkinter import filedialog, simpledialog, messagebox
 from PIL import Image, ImageTk
 import os
 import json
@@ -7,6 +7,7 @@ import difflib
 import numpy as np
 import cv2
 import easyocr
+import time
 #from types import NoneType
 
 
@@ -80,6 +81,10 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Загрузить изображение", command=self.load_image_for_check)
         self.load_image_button.pack(side=tk.TOP)
 
+        self.load_image_button = tk.Button(root, text="Продолжить", command=self.is_clicked)
+        self.load_image_button.pack(side=tk.TOP)
+        self.changes = 0
+
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
@@ -91,6 +96,9 @@ class ImageEditor:
 
         self.reader = easyocr.Reader(['en'])
         self.is_file = False
+
+    def is_clicked(self):
+        self.changes += 1
 
     def clear_coords(self):
         self.rectangles_data.clear()
@@ -144,7 +152,6 @@ class ImageEditor:
         # Проверяем текст на квадратах с использованием Tesseract OCR
         if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
             self.canvas.delete("checked_rectangles")
-            print(self.rectangles_data)
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
 
@@ -155,34 +162,42 @@ class ImageEditor:
                 if class_name == 'None':
                     continue
 
-                if class_name == 'p':
+                if class_name.split(' ')[0] == 'p':
                     avg_color_per_row = np.average(region, axis=0)
                     avg_color = np.average(avg_color_per_row, axis=0)
-                    dist = np.linalg.norm(avg_color - data['color'])
-                    percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
-                    if percent < 0.08:
-                        color = 'green'
-                    else:
-                        color = 'red'
+                    print(data['color'])
+                    for i in data['color']:
+                        dist = np.linalg.norm(avg_color - i)
+                        percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
+                        if percent < 0.08:
+                            color = 'green'
+                            print(color, i)
+                            break
+                        else:
+                            color = 'red'
+                            print(color, i)
 
                 if class_name != 'p':
                     text = self.reader.readtext(region)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
                         text = text[0][1]
-                        if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
-                            region = cv2.rotate(region, cv2.ROTATE_180)
-                            text = self.reader.readtext(region)[0][1]
-                            if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                        for i in class_name.split("|"):
+                            if difflib.SequenceMatcher(None, text, i).ratio() <= 0.5:
+                                region = cv2.rotate(region, cv2.ROTATE_180)
+                                text = self.reader.readtext(region)[0][1]
+                                if difflib.SequenceMatcher(None, text, i).ratio() > 0.5:
+                                    color = 'green'
+                                    break
+                                else:
+                                    color = 'red'
+                            elif difflib.SequenceMatcher(None, text, i).ratio() > 0.5:
                                 color = 'green'
+                                break
                             else:
                                 color = 'red'
-                        elif difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
-                            color = 'green'
                         else:
                             color = 'red'
-                    else:
-                        color = 'red'
 
                 self.canvas.delete("red")
                 self.rectangles_data[j]['status'] = color
@@ -262,11 +277,49 @@ class ImageEditor:
 
         # Окно для ввода класса
         class_name = simpledialog.askstring("Input", "Enter class name for the rectangle:")
+        print(class_name.split(' ')[0] )
         if type(class_name) == type(None):
             self.canvas.delete('temp_rectangle')
             self.rectangles_data.pop()
             self.draw_saved_rectangles()
             pass
+
+        elif class_name.split(' ')[0] == 'p':
+            colors = []
+            count_of_colors = class_name.split(' ')[-1]
+            print(count_of_colors)
+            self.stop_cap()
+            for _ in range(int(count_of_colors)):
+                f, frame = self.cap.read()
+                frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                self.original_image = frame
+                self.resize_image()
+                self.display_image()
+                self.draw_saved_rectangles()
+                self.root.update()
+
+                region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
+
+                region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+
+                avg_color_per_row = np.average(region, axis=0)
+                avg_color = np.average(avg_color_per_row, axis=0)
+                colors.append(avg_color.tolist())
+                if _ != int(count_of_colors) - 1:
+                    messagebox.askyesno('Подтверждение', 'Поменяли?')
+
+            # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": colors, "status": "red", "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+
+            self.get_cap()
+            # Добавляем данные о прямоугольнике в список
+
+            # Удаляем временный прямоугольник
+            self.canvas.delete("temp_rectangle")
+            self.canvas.delete("temp_rectangles")
+        
+            self.draw_saved_rectangles()
+        
         elif class_name != 'p':
 
             # Рисуем окончательный прямоугольник на исходном изображении
@@ -275,33 +328,15 @@ class ImageEditor:
             # Добавляем данные о прямоугольнике в список
 
             self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
-            print(start_x, start_y, end_x, end_y)
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
             self.draw_saved_rectangles()
 
-        elif class_name == 'p':
-            region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
-            region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
-
-            avg_color_per_row = np.average(region, axis=0)
-            avg_color = np.average(avg_color_per_row, axis=0)
-            
-            # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
-
-            # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist(), "status": "red", "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
-
-            # Удаляем временный прямоугольник
-            self.canvas.delete("temp_rectangle")
-            self.canvas.delete("temp_rectangles")
         
-            self.draw_saved_rectangles()
 
     def draw_saved_rectangles(self):
         # Рисуем сохраненные квадратики на холсте
-        print(self.original_image.width, self.displayed_image.width)
 
         for j, data in enumerate(self.rectangles_data):
             coordinates = list(data['coordinates'])
@@ -311,7 +346,6 @@ class ImageEditor:
                 self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=color, width=2, tags=["temp_rectangles", "red"])
                 continue
             elif color == 'red':
-                print(coordinates)
                 self.canvas.create_rectangle([coordinates[0] / self.wratio, coordinates[1] / self.hratio, coordinates[2] / self.wratio, coordinates[3] / self.hratio], outline=color, width=2, tags=["rectangles", 'red'])
                 #self.canvas.create_rectangle([coordinates[0], coordinates[2], coordinates[1], coordinates[3]], outline=color, width=2, tags=["rectangles", 'red'])
                 self.canvas.create_text(
