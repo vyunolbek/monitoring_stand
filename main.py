@@ -10,14 +10,13 @@ import easyocr
 import time
 #from types import NoneType
 
-
 def gstreamer_pipeline(
     sensor_id=0,
-    capture_width=1920,
-    capture_height=1080,
+    capture_width=3264,
+    capture_height=2464,
     display_width=960,
     display_height=540,
-    framerate=30,
+    framerate=21,
     flip_method=0,
 ):
     return (
@@ -88,10 +87,11 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
+        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
+
         self.load_image_button = tk.Button(root, text="Выключить видео", command=self.stop_cap)
         self.load_image_button.pack(side=tk.TOP)
 
-        self.cap = cv2.VideoCapture(0)
         self.video = True
 
         self.reader = easyocr.Reader(['en'])
@@ -154,9 +154,10 @@ class ImageEditor:
             self.canvas.delete("checked_rectangles")
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
-
+                print(self.original_image.shape)
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
                 region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+                cv2.imwrite('region.png', region)
                 class_name = data["class"]
 
                 if class_name == 'None':
@@ -179,6 +180,7 @@ class ImageEditor:
 
                 if class_name != 'p':
                     text = self.reader.readtext(region)
+                    print(text)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
                         text = text[0][1]
