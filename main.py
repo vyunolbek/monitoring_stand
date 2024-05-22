@@ -1,5 +1,6 @@
+from tkinter import *
 import tkinter as tk
-from tkinter import filedialog, simpledialog
+from tkinter import filedialog, simpledialog, messagebox, ttk
 from PIL import Image, ImageTk
 import os
 import json
@@ -86,9 +87,32 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Выключить видео", command=self.stop_cap)
         self.load_image_button.pack(side=tk.TOP)
 
+        self.json_combobox = ttk.Combobox(root)
+        self.json_combobox.pack(side=tk.TOP)
+        self.json_combobox.bind("<Button-1>", self.load_json_files)
+        self.json_combobox.bind("<<ComboboxSelected>>", self.on_json_selected)
+
         self.video = True
 
         self.is_file = False
+    
+    def load_json_files(self, event):
+        # Получаем список JSON файлов из указанной папки
+        json_files = [f for f in os.listdir(self.save_path) if f.endswith('.json')]
+        self.json_combobox['values'] = json_files
+
+    def on_json_selected(self, event):
+        # Обработчик выбора JSON файла из выпадающего списка
+        selected_file = self.json_combobox.get()
+        file_path = os.path.join(self.save_path, selected_file)
+        with open(file_path, 'r') as f:
+            self.rectangles_data = json.load(f)
+            print(self.rectangles_data)
+        self.display_image()
+        self.draw_saved_rectangles()
+
+    def is_clicked(self):
+        self.changes += 1
 
     def clear_coords(self):
         self.rectangles_data.clear()
@@ -142,7 +166,6 @@ class ImageEditor:
         # Проверяем текст на квадратах с использованием Tesseract OCR
         if self.image_path or type(self.original_image) == np.ndarray or type(self.original_image) == Image.Image:
             self.canvas.delete("checked_rectangles")
-            print(self.rectangles_data)
             for j, data in enumerate(self.rectangles_data):
                 coordinates = list(map(int, data["coordinates"]))
                 region = np.array(self.original_image)[coordinates[1]:coordinates[1] + (coordinates[3] - coordinates[1]), coordinates[0]:coordinates[0] + (coordinates[2] - coordinates[0])]
@@ -153,15 +176,17 @@ class ImageEditor:
                 if class_name == 'None':
                     continue
 
-                if class_name == 'p':
+                if class_name.split(' ')[0] == 'p':
                     avg_color_per_row = np.average(region, axis=0)
                     avg_color = np.average(avg_color_per_row, axis=0)
-                    dist = np.linalg.norm(avg_color - data['color'])
-                    percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
-                    if percent < 0.08:
-                        color = 'green'
-                    else:
-                        color = 'red'
+                    for i in data['color']:
+                        dist = np.linalg.norm(avg_color - i)
+                        percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
+                        if percent < 0.08:
+                            color = 'green'
+                            break
+                        else:
+                            color = 'red'
 
                 if class_name != 'p':
                     region = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
@@ -169,24 +194,25 @@ class ImageEditor:
                     kernel = np.ones((3, 3), np.uint8)
                     region = cv2.erode(thresh, kernel, iterations=1)
                     text = pytesseract.image_to_string(Image.fromarray(region))
-                    print(text)
                     # Рисуем прямоугольник с соответствующим цветом
                     if len(text) != 0:
-                        print(text)
-                        if difflib.SequenceMatcher(None, text, class_name).ratio() <= 0.5:
-                            region = cv2.rotate(region, cv2.ROTATE_180)
-                            text = pytesseract.image_to_string(Image.fromarray(region))
-                            print(text)
-                            if difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
+                        text = text[0][1]
+                        for i in class_name.split("|"):
+                            if difflib.SequenceMatcher(None, text, i).ratio() <= 0.5:
+                                region = cv2.rotate(region, cv2.ROTATE_180)
+                                text = self.reader.readtext(region)[0][1]
+                                if difflib.SequenceMatcher(None, text, i).ratio() > 0.5:
+                                    color = 'green'
+                                    break
+                                else:
+                                    color = 'red'
+                            elif difflib.SequenceMatcher(None, text, i).ratio() > 0.5:
                                 color = 'green'
+                                break
                             else:
                                 color = 'red'
-                        elif difflib.SequenceMatcher(None, text, class_name).ratio() > 0.5:
-                            color = 'green'
                         else:
                             color = 'red'
-                    else:
-                        color = 'red'
 
                 self.canvas.delete("red")
                 self.rectangles_data[j]['status'] = color
@@ -284,22 +310,53 @@ class ImageEditor:
             self.canvas.delete("temp_rectangles")
             self.draw_saved_rectangles()
 
-        elif class_name == 'p':
-            region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
-            region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+        elif class_name.split(' ')[0] == 'p':
+            colors = []
+            count_of_colors = class_name.split(' ')[-1]
+            print(count_of_colors)
+            self.stop_cap()
+            for _ in range(int(count_of_colors)):
+                f, frame = self.cap.read()
+                frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                self.original_image = frame
+                self.resize_image()
+                self.display_image()
+                self.draw_saved_rectangles()
+                self.root.update()
 
-            avg_color_per_row = np.average(region, axis=0)
-            avg_color = np.average(avg_color_per_row, axis=0)
+                region = np.array(self.original_image)[start_y:start_y + (end_y - start_y), start_x:start_x + (end_x - start_x)]
+
+                region = cv2.cvtColor(region, cv2.COLOR_BGR2RGB)
+
+                avg_color_per_row = np.average(region, axis=0)
+                avg_color = np.average(avg_color_per_row, axis=0)
+                colors.append(avg_color.tolist())
+                if _ != int(count_of_colors) - 1:
+                    messagebox.askyesno('Подтверждение', 'Поменяли?')
             
             # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": colors, "status": "red", "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
+            self.get_cap()
             # Добавляем данные о прямоугольнике в список
-            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, "color": avg_color.tolist(), "status": "red", "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
 
             # Удаляем временный прямоугольник
             self.canvas.delete("temp_rectangle")
             self.canvas.delete("temp_rectangles")
         
+            self.draw_saved_rectangles()
+        
+        elif class_name != 'p':
+
+            # Рисуем окончательный прямоугольник на исходном изображении
+            # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
+
+            # Добавляем данные о прямоугольнике в список
+
+            self.rectangles_data.append({"coordinates": (start_x, start_y, end_x, end_y), "class": class_name, 'status': 'red', "displayed_image": [self.displayed_image.width, self.displayed_image.height]})
+            # Удаляем временный прямоугольник
+            self.canvas.delete("temp_rectangle")
+            self.canvas.delete("temp_rectangles")
             self.draw_saved_rectangles()
 
     def draw_saved_rectangles(self):
