@@ -199,7 +199,7 @@ class ImageEditor:
                         for i in class_name.split("|"):
                             if difflib.SequenceMatcher(None, text, i).ratio() <= 0.5:
                                 region = cv2.rotate(region, cv2.ROTATE_180)
-                                text = pytesseract.image_to_string(Image.fromarray(region)
+                                text = pytesseract.image_to_string(Image.fromarray(region))
                                 if difflib.SequenceMatcher(None, text, i).ratio() > 0.5:
                                     color = 'green'
                                     break
