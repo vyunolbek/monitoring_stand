@@ -82,7 +82,7 @@ class ImageEditor:
         self.load_image_button = tk.Button(root, text="Включить видео", command=self.get_cap)
         self.load_image_button.pack(side=tk.TOP)
 
-        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
+        self.cap = cv2.VideoCapture(0)
 
         self.load_image_button = tk.Button(root, text="Выключить видео", command=self.stop_cap)
         self.load_image_button.pack(side=tk.TOP)
@@ -179,6 +179,7 @@ class ImageEditor:
                 if class_name.split(' ')[0] == 'p':
                     avg_color_per_row = np.average(region, axis=0)
                     avg_color = np.average(avg_color_per_row, axis=0)
+                    print(data)
                     for i in data['color']:
                         dist = np.linalg.norm(avg_color - i)
                         percent = dist / np.sqrt(255 ** 2 + 255 ** 2 + 255 ** 2)
@@ -296,7 +297,7 @@ class ImageEditor:
             self.rectangles_data.pop()
             self.draw_saved_rectangles()
             pass
-        elif class_name != 'p':
+        elif class_name.split(' ')[0] != 'p':
 
             # Рисуем окончательный прямоугольник на исходном изображении
             # self.canvas.create_rectangle(start_x / ratio, start_y / ratio, end_x / ratio, end_y / ratio, outline="red", width=2, tags=["rectangles", "red"])
